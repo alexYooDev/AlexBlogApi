@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using BlogApi.Models;
 using BlogApi.Data;
 using BlogApi.DTOs.Authors;
+using Microsoft.AspNetCore.Authorization;
 
 namespace BlogApi.Controllers;
 
@@ -41,6 +42,7 @@ public class AuthorsController: ControllerBase
 
     /* POST /api/authors */
     [HttpPost]
+    [Authorize(AuthenticationSchemes = "ApiKey")]
     public async Task<ActionResult<CreateAuthorResponse>> CreateAuthor(CreateAuthorRequest request)
     {
         var author = new Author
@@ -68,6 +70,7 @@ public class AuthorsController: ControllerBase
 
     /* PUT /api/authors/{id} */
     [HttpPut("{id}")]
+    [Authorize(AuthenticationSchemes = "ApiKey")]
     public async Task<ActionResult<AuthorResponse>> UpdateAuthor(int id, UpdateAuthorRequest request)
     {
         var author = await _context.Authors.FindAsync(id);
@@ -85,6 +88,7 @@ public class AuthorsController: ControllerBase
 
     /* DELETE /api/authors/{id} */
     [HttpDelete("{id}")]
+    [Authorize(AuthenticationSchemes = "ApiKey")]
     public async Task<IActionResult> DeleteAuthor(int id)
     {
         var author = await _context.Authors.FindAsync(id);

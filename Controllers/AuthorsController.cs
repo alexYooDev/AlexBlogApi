@@ -40,12 +40,51 @@ public class AuthorsController: ControllerBase
 
     /* POST /api/authors */
     [HttpPost]
-    public async Task<ActionResult<CreateAuthorRequest>> CreateAuthor(Author author)
+    public async Task<ActionResult<AuthorResponse>> CreateAuthor(CreateAuthorRequest request)
     {
+        var author = new Author
+        {
+            Name = request.Name,
+            Bio = request.Bio,
+            Email = request.Email
+        };
+
         _context.Authors.Add(author);
+
         await _context.SaveChangesAsync();
 
         return CreatedAtAction(nameof (GetAuthor), new { id = author.Id }, ToResponse(author));
+    }
+
+    /* PUT /api/authors/{id} */
+    [HttpPut("{id}")]
+    public async Task<ActionResult<AuthorResponse>> UpdateAuthor(int id, UpdateAuthorRequest request)
+    {
+        var author = await _context.Authors.FindAsync(id);
+
+        if (author == null) return NotFound();
+
+        author.Name = request.Name;
+        author.Bio = request.Bio;
+        author.Email = request.Email;
+
+        await _context.SaveChangesAsync();
+
+        return ToResponse(author);
+    }
+
+    /* DELETE /api/authors/{id} */
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteAuthor(int id)
+    {
+        var author = await _context.Authors.FindAsync(id);
+        
+        if (author == null) return NotFound();
+
+        _context.Authors.Remove(author);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
     }
 
     private AuthorResponse ToResponse(Author author)

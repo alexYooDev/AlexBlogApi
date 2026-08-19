@@ -23,6 +23,7 @@ public class PostsController: ControllerBase
     {
         var posts = await _context.Posts
         .Include(p => p.Tags)
+        .Include(p => p.Author)
         .Where(p => p.IsPublished)
         .OrderByDescending(p => p.PublishedAt)
         .ToListAsync();
@@ -46,7 +47,7 @@ public class PostsController: ControllerBase
 
     /* POST api/posts */
     [HttpPost]
-    public async Task<ActionResult<CreatePostRequest>> CreatePost(CreatePostRequest request)
+    public async Task<ActionResult<PostResponse>> CreatePost(CreatePostRequest request)
     {
         var author = await _context.Authors.FindAsync(request.AuthorId);
         if (author == null) return NotFound();
@@ -128,7 +129,8 @@ public class PostsController: ControllerBase
     }
 
     /* DELETE /api/posts/{id} */
-    public async Task<ActionResult<PostResponse>> DeletePost(int id)
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeletePost(int id)
     {
         var post = await _context.Posts.FindAsync(id);
         

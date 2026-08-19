@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+
 using BlogApi.Data;
 using BlogApi.Models;
 using BlogApi.DTOs.Posts;
@@ -47,6 +49,7 @@ public class PostsController: ControllerBase
 
     /* POST api/posts */
     [HttpPost]
+    [Authorize(AuthenticationSchemes = "ApiKey")]
     public async Task<ActionResult<PostResponse>> CreatePost(CreatePostRequest request)
     {
         var author = await _context.Authors.FindAsync(request.AuthorId);
@@ -87,6 +90,7 @@ public class PostsController: ControllerBase
 
     /* PUT /api/posts/{id} */
     [HttpPut("{id}")]
+    [Authorize(AuthenticationSchemes = "ApiKey")]
     public async Task<ActionResult<PostResponse>> UpdatePost(int id, UpdatePostRequest request)
     {
         var post = await _context.Posts
@@ -130,6 +134,7 @@ public class PostsController: ControllerBase
 
     /* DELETE /api/posts/{id} */
     [HttpDelete("{id}")]
+    [Authorize(AuthenticationSchemes = "ApiKey")]
     public async Task<IActionResult> DeletePost(int id)
     {
         var post = await _context.Posts.FindAsync(id);

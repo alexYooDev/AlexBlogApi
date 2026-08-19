@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
 
 using BlogApi.Models;
 using BlogApi.Data;
@@ -40,20 +41,29 @@ public class AuthorsController: ControllerBase
 
     /* POST /api/authors */
     [HttpPost]
-    public async Task<ActionResult<AuthorResponse>> CreateAuthor(CreateAuthorRequest request)
+    public async Task<ActionResult<CreateAuthorResponse>> CreateAuthor(CreateAuthorRequest request)
     {
         var author = new Author
         {
             Name = request.Name,
             Bio = request.Bio,
-            Email = request.Email
+            Email = request.Email,
+            ApiKey = GenerateApiKey()
         };
 
         _context.Authors.Add(author);
-
         await _context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof (GetAuthor), new { id = author.Id }, ToResponse(author));
+        var response = new CreateAuthorResponse
+        {
+            Id = author.Id,
+            Name = author.Name,
+            Bio = author.Bio,
+            Email = author.Email,
+            ApiKey = author.ApiKey
+        };
+
+        return CreatedAtAction(nameof (GetAuthor), new { id = author.Id }, response);
     }
 
     /* PUT /api/authors/{id} */
@@ -85,6 +95,15 @@ public class AuthorsController: ControllerBase
         await _context.SaveChangesAsync();
 
         return NoContent();
+    }
+    
+    private static string GenerateApiKey()
+    {
+        var bytes = RandomNumberGenerator.GetBytes(32);
+        return Convert.ToBase64String(bytes)
+            .Replace("+", "")
+            .Replace("/", "")
+            .Replace("=", "");
     }
 
     private AuthorResponse ToResponse(Author author)

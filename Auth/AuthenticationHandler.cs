@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using BlogApi.Data;
+using BlogApi.Services;
 
 namespace BlogApi.Auth;
 
@@ -37,7 +38,9 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAuthentic
             return AuthenticateResult.Fail("API Key is empty");
         }
 
-        var author = await _context.Authors.FirstOrDefaultAsync(a => a.ApiKey == providedKey);
+        var hashedKey = ApiKeyHasher.Hash(providedKey);
+
+        var author = await _context.Authors.FirstOrDefaultAsync(a => a.ApiKey == hashedKey);
 
         if (author == null)
         {

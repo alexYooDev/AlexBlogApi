@@ -4,6 +4,7 @@ using BlogApi.Data;
 using BlogApi.Models;
 
 using System.Security.Cryptography;
+using SQLitePCL;
 
 namespace BlogApi.Services;
 
@@ -33,27 +34,28 @@ public class AuthorService : IAuthorService
 
     public async Task<CreateAuthorResponse?> CreateAuthorAsync(CreateAuthorRequest request)
     {
+
+        var rawApiKey = GenerateApiKey();
+
         var author = new Author
         {
             Name = request.Name,
             Email = request.Email,
             Bio = request.Bio,
-            ApiKey = GenerateApiKey()
+            ApiKey = ApiKeyHasher.Hash(rawApiKey) // Hash the raw api string 
         };
 
         _context.Authors.Add(author);
         await _context.SaveChangesAsync();
 
-        var response = new CreateAuthorResponse
+        return new CreateAuthorResponse
         {
             Id = author.Id,
             Name = author.Name,
             Bio = author.Bio,
             Email = author.Email,
-            ApiKey = author.ApiKey
+            ApiKey = rawApiKey
         };
-
-        return response;
     }
 
     public async Task<AuthorResponse?> UpdateAuthorAsync(int id, UpdateAuthorRequest request)
@@ -86,11 +88,10 @@ public class AuthorService : IAuthorService
     public async Task<CreateAuthorResponse?> RegenerateApiKeyAsync(int id)
     {
         var author = await _context.Authors.FindAsync(id);
-
         if (author == null) return null;
 
-        author.ApiKey = GenerateApiKey();
-        
+        var rawApiKey = GenerateApiKey();
+        author.ApiKey = ApiKeyHasher.Hash(rawApiKey);
         await _context.SaveChangesAsync();
 
         return new CreateAuthorResponse
@@ -99,7 +100,7 @@ public class AuthorService : IAuthorService
             Name = author.Name,
             Bio = author.Bio,
             Email = author.Email,
-            ApiKey = author.ApiKey
+            ApiKey = rawApiKey
         };
     }
 

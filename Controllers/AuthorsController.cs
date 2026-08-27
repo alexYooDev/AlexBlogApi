@@ -6,6 +6,7 @@ using BlogApi.Models;
 using BlogApi.Data;
 using BlogApi.DTOs.Authors;
 using Microsoft.AspNetCore.Authorization;
+using BlogApi.Services;
 
 namespace BlogApi.Controllers;
 
@@ -13,31 +14,31 @@ namespace BlogApi.Controllers;
 [Route("api/[controller]")]
 public class AuthorsController: ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly IAuthorService _authorService;
 
-    public AuthorsController(AppDbContext context)
+    public AuthorsController(IAuthorService authorService)
     {
-        _context = context;
+        _authorService = authorService;
     }
 
     /* GET /api/authors */
     [HttpGet]
     public async Task<ActionResult<IEnumerable<AuthorResponse>>> GetAuthors()
     {
-        var authors = await _context.Authors.ToListAsync();
+        var authors = await _authorService.GetAuthorsAsync();
 
-        return authors.Select(ToResponse).ToList();
+        return authors;
     }
 
    /* GET /api/authors/{id} */
     [HttpGet("{id}")]
     public async Task<ActionResult<AuthorResponse>> GetAuthor(int id)
     {
-        var author = await _context.Authors.FindAsync(id);
+        var author = await _authorService.GetAuthorAsync(id);
 
         if (author == null) return NotFound();
 
-        return ToResponse(author);
+        return author;
     }
 
     /* POST /api/authors */
@@ -45,27 +46,22 @@ public class AuthorsController: ControllerBase
     [Authorize(AuthenticationSchemes = "ApiKey")]
     public async Task<ActionResult<CreateAuthorResponse>> CreateAuthor(CreateAuthorRequest request)
     {
-        var author = new Author
-        {
-            Name = request.Name,
-            Bio = request.Bio,
-            Email = request.Email,
-            ApiKey = GenerateApiKey()
-        };
+        var created = await _authorService.CreateAuthorAsync(request);
 
-        _context.Authors.Add(author);
-        await _context.SaveChangesAsync();
+        if (created == null ) return BadRequest("Creation of author failed.");
 
-        var response = new CreateAuthorResponse
-        {
-            Id = author.Id,
-            Name = author.Name,
-            Bio = author.Bio,
-            Email = author.Email,
-            ApiKey = author.ApiKey
-        };
+        return CreatedAtAction(nameof (GetAuthor), new { id = created.Id }, created);
+    }
 
-        return CreatedAtAction(nameof (GetAuthor), new { id = author.Id }, response);
+    /* POST /api/authors/{id}/regenerate-key */
+    [HttpPost("{id}/regenerate-key")]
+    public async Task<ActionResult<CreateAuthorResponse>> RegenerateApiKey(int id)
+    {
+        var regenerated = await _authorService.RegenerateApiKeyAsync(id);
+
+        if (regenerated == null) return NotFound();
+        
+        return regenerated;
     }
 
     /* PUT /api/authors/{id} */
@@ -73,17 +69,11 @@ public class AuthorsController: ControllerBase
     [Authorize(AuthenticationSchemes = "ApiKey")]
     public async Task<ActionResult<AuthorResponse>> UpdateAuthor(int id, UpdateAuthorRequest request)
     {
-        var author = await _context.Authors.FindAsync(id);
+        var updated = await _authorService.UpdateAuthorAsync(id, request);
 
-        if (author == null) return NotFound();
+        if (updated == null) return NotFound();
 
-        author.Name = request.Name;
-        author.Bio = request.Bio;
-        author.Email = request.Email;
-
-        await _context.SaveChangesAsync();
-
-        return ToResponse(author);
+        return updated;
     }
 
     /* DELETE /api/authors/{id} */
@@ -91,33 +81,11 @@ public class AuthorsController: ControllerBase
     [Authorize(AuthenticationSchemes = "ApiKey")]
     public async Task<IActionResult> DeleteAuthor(int id)
     {
-        var author = await _context.Authors.FindAsync(id);
+        var deleted = await _authorService.DeleteAuthorAsync(id);
         
-        if (author == null) return NotFound();
-
-        _context.Authors.Remove(author);
-        await _context.SaveChangesAsync();
+        if (!deleted) return NotFound();
 
         return NoContent();
     }
     
-    private static string GenerateApiKey()
-    {
-        var bytes = RandomNumberGenerator.GetBytes(32);
-        return Convert.ToBase64String(bytes)
-            .Replace("+", "")
-            .Replace("/", "")
-            .Replace("=", "");
-    }
-
-    private AuthorResponse ToResponse(Author author)
-    {
-        return new AuthorResponse
-        {
-            Id = author.Id,
-            Name = author.Name,
-            Bio = author.Bio,
-            Email = author.Email
-        };
-    }
 }

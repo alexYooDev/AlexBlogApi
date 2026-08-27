@@ -3,12 +3,28 @@ using BlogApi.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.OpenApi;
+using BlogApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+/* CORS Policy */
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowClientAccess", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173")
+        .AllowAnyHeader()
+        .AllowAnyMethod();
+    });
+});
 
 // Add services to the container.
 builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite("Data Source=blog.db"));
 
+builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<IAuthorService, AuthorService>();
+
+/* Add Controllers */
 builder.Services.AddControllers();
 
 builder.Services.AddEndpointsApiExplorer();
@@ -40,6 +56,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("AllowClientAccess");
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using BlogApi.Data;
 using BlogApi.Models;
 using BlogApi.DTOs.Posts;
+using BlogApi.Services;
 
 namespace BlogApi.Controllers;
 
@@ -12,39 +13,31 @@ namespace BlogApi.Controllers;
 [Route("api/[controller]")]
 public class PostsController: ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly IPostService _postService;
 
-    public PostsController(AppDbContext context)
+    public PostsController(IPostService postService)
     {
-        _context = context;
+        _postService = postService;
     }
 
     /* GET api/posts */
     [HttpGet]
     public async Task<ActionResult<IEnumerable<PostResponse>>> GetPosts()
     {
-        var posts = await _context.Posts
-        .Include(p => p.Tags)
-        .Include(p => p.Author)
-        .Where(p => p.IsPublished)
-        .OrderByDescending(p => p.PublishedAt)
-        .ToListAsync();
+        var posts = await _postService.GetPublishedPostsAsync();
 
-        return posts.Select(ToResponse).ToList();
+        return posts;
     }
 
     /* GET api/posts/{slug} */
     [HttpGet("{slug}")]
     public async Task<ActionResult<PostResponse>> GetPost(string slug)
     {
-        var post = await _context.Posts
-        .Include(p => p.Tags)
-        .Include(p => p.Author)
-        .FirstOrDefaultAsync(p => p.Slug == slug);
+        var post = await _postService.GetPostBySlugAsync(slug);
 
         if (post == null) return NotFound();
 
-        return ToResponse(post);
+        return post;
     }
 
     /* POST api/posts */
@@ -52,39 +45,11 @@ public class PostsController: ControllerBase
     [Authorize(AuthenticationSchemes = "ApiKey")]
     public async Task<ActionResult<PostResponse>> CreatePost(CreatePostRequest request)
     {
-        var author = await _context.Authors.FindAsync(request.AuthorId);
-        if (author == null) return NotFound();
+        var created = await _postService.CreatePostAsync(request);
 
-        var post = new Post
-        {
-            Title = request.Title,
-            Slug = request.Slug,
-            Content = request.Content,
-            Summary = request.Summary,
-            IsPublished = request.IsPublished,
-            PublishedAt = request.IsPublished ? DateTime.UtcNow : null,
-            AuthorId = request.AuthorId
-        };
+        if (created == null) return BadRequest("Author not found.");
 
-        // Handling tags, if any reuse if not create new
-        foreach (var tagName in request.TagNames)
-        {
-            var tag = await _context.Tags.FirstOrDefaultAsync(t => t.Name == tagName);
-            if (tag == null)
-            {
-                tag = new Tag { Name = tagName };
-                _context.Tags.Add(tag);
-            }
-
-            post.Tags.Add(tag);
-        }
-        _context.Posts.Add(post);
-        await _context.SaveChangesAsync();
-
-        /* Load post with author data async, since author property not yet loaded upon post creation */
-        await _context.Entry(post).Reference(p => p.Author).LoadAsync();
-
-        return CreatedAtAction(nameof (GetPost), new { slug = post.Slug }, ToResponse(post));
+        return CreatedAtAction(nameof (GetPost), new { slug = created.Slug }, created);
     }
 
 
@@ -93,43 +58,11 @@ public class PostsController: ControllerBase
     [Authorize(AuthenticationSchemes = "ApiKey")]
     public async Task<ActionResult<PostResponse>> UpdatePost(int id, UpdatePostRequest request)
     {
-        var post = await _context.Posts
-        .Include(p => p.Tags)
-        .Include(p => p.Author)
-        .FirstOrDefaultAsync(p => p.Id == id);
+        var updated = await _postService.UpdatePostAsync(id, request);
 
-        if (post == null) return NotFound();
+        if (updated == null) return NotFound();
 
-        post.Title = request.Title;
-        post.Slug = request.Slug;
-        post.Content = request.Content;
-        post.Summary = request.Summary;
-
-        if (request.IsPublished && !post.IsPublished)
-        {
-            post.PublishedAt = DateTime.UtcNow;
-        }
-
-        post.IsPublished = request.IsPublished;
-
-        post.Tags.Clear();
-
-        foreach (var tagName in request.TagNames)
-        {
-            var tag = await _context.Tags.FirstOrDefaultAsync(t => t.Name == tagName);
-
-            if (tag == null)
-            {
-                tag = new Tag { Name = tagName };
-                _context.Tags.Add(tag);
-            }
-
-            post.Tags.Add(tag);
-        }
-
-        await _context.SaveChangesAsync();
-
-        return ToResponse(post);
+        return updated;
     }
 
     /* DELETE /api/posts/{id} */
@@ -137,30 +70,10 @@ public class PostsController: ControllerBase
     [Authorize(AuthenticationSchemes = "ApiKey")]
     public async Task<IActionResult> DeletePost(int id)
     {
-        var post = await _context.Posts.FindAsync(id);
+        var deleted = await _postService.DeletePostAsync(id);
+
+        if (!deleted) return NotFound();
         
-        if (post == null) return NotFound();
-
-        _context.Posts.Remove(post);
-        await _context.SaveChangesAsync();
-
         return NoContent();
-    }
-
-    private static PostResponse ToResponse(Post post)
-    {
-        return new PostResponse
-        {
-            Id = post.Id,
-            Title = post.Title,
-            Slug = post.Slug,
-            Content = post.Content,
-            Summary = post.Summary,
-            CreatedAt = post.CreatedAt,
-            PublishedAt = post.PublishedAt,
-            IsPublished = post.IsPublished,
-            AuthorName = post.Author.Name,
-            Tags = post.Tags.Select(t => t.Name).ToList()
-        };
     }
 }
